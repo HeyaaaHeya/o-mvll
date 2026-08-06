@@ -32,6 +32,7 @@ enum class Pass {
   FunctionOutline,
   InlineJni,
   ShuffleFunctions,
+  ShuffleOps,
 };
 
 struct OMVLLConfig {
