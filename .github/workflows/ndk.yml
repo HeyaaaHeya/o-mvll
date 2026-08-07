@@ -30,7 +30,11 @@ jobs:
             -v /tmp/third-party-ndk29:/third-party \
             -v ${{ github.workspace }}/dist/Python-3.10.7:/Python-3.10.7 \
             -v $GITHUB_WORKSPACE:/o-mvll \
-            openobfuscator/omvll-build:latest bash /o-mvll/scripts/docker/ndk_r29_compile.sh
+            openobfuscator/omvll-build:latest bash -c "
+              apt-get update && apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu && \
+              export CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ CFLAGS='--target=aarch64-linux-gnu' CXXFLAGS='--target=aarch64-linux-gnu' && \
+              bash /o-mvll/scripts/docker/ndk_r29_compile.sh
+            "
       - name: Upload plugin
         uses: actions/upload-artifact@v4
         with:
