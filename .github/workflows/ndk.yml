@@ -1,5 +1,7 @@
 name: 'O-MVLL NDK (ARM64 Host)'
-on: push
+on: 
+  workflow_dispatch:
+  push:
 
 jobs:
   build:
