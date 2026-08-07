@@ -1,13 +1,20 @@
-name: 'O-MVLL NDK'
+name: 'O-MVLL NDK (ARM64 Host)'
 on: push
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 1. Gunakan runner native ARM64 dari GitHub
+    runs-on: ubuntu-24.04-arm
+
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # 2. Tambahkan QEMU setup agar Docker dapat menjalankan container ARM64
+      - name: Set up QEMU for ARM64
+        uses: docker/setup-qemu-action@v3
+
       - name: Get deployment version
         id: versioning
         run: |
@@ -16,7 +23,8 @@ jobs:
           IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_TAG"
           NEXT_VERSION="${MAJOR}-$((MINOR + 1))-0"
           echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
-      - name: O-MVLL Android NDK r29d
+
+      - name: O-MVLL Android NDK r29d (ARM64 Build)
         shell: bash
         run: |
           curl -LO https://open-obfuscator.build38.io/static/omvll-deps-ndk-r29d.tar
@@ -24,17 +32,22 @@ jobs:
           tar xvf ./omvll-deps-ndk-r29d.tar --directory=/tmp/third-party-ndk29
           curl -LO https://www.python.org/ftp/python/3.10.7/Python-3.10.7.tgz
           tar xzvf Python-3.10.7.tgz --directory=${{ github.workspace }}/dist
+          
+          # 3. Paksa Docker berjalan di bawah platform linux/arm64
           docker run --rm \
+            --platform linux/arm64 \
             -v /tmp/third-party-ndk29:/third-party \
             -v ${{ github.workspace }}/dist/Python-3.10.7:/Python-3.10.7 \
             -v $GITHUB_WORKSPACE:/o-mvll \
             openobfuscator/omvll-build:latest bash /o-mvll/scripts/docker/ndk_r29_compile.sh
-      - name: Upload plugin
+
+      - name: Upload ARM64 plugin artifact
         uses: actions/upload-artifact@v4
         with:
-          name: omvll-plugin
+          name: omvll-plugin-arm64
           path: |
             ${{ github.workspace }}/dist/omvll-ndk.so
+
       - name: Generate deployment tar
         uses: a7ul/tar-action@v1.1.3
         id: compress
@@ -45,20 +58,4 @@ jobs:
             ./omvll-ndk.so
             ./sample-omvll-config.py
             ./Python-3.10.7
-          outPath: ${{ github.workspace }}/dist/omvll_v${{ steps.versioning.outputs.next_version }}_linux.tar.gz
-      - name: O-MVLL Deployment
-        env:
-          BUILD38_S3_KEY: ${{ secrets.BUILD38_S3_KEY }}
-          BUILD38_S3_SECRET: ${{ secrets.BUILD38_S3_SECRET }}
-        shell: bash
-        run: |
-          docker run \
-            -v $GITHUB_WORKSPACE:/o-mvll \
-            -e GITHUB_ACTIONS="true" \
-            -e GITHUB_WORKSPACE=$GITHUB_WORKSPACE \
-            -e GITHUB_REF=$GITHUB_REF \
-            -e GITHUB_REPOSITORY=$GITHUB_REPOSITORY \
-            -e BUILD38_S3_KEY=$BUILD38_S3_KEY \
-            -e BUILD38_S3_SECRET=$BUILD38_S3_SECRET \
-            --rm \
-            openobfuscator/deployment python3 /o-mvll/.github/scripts/s3-deploy.py
+          outPath: ${{ github.workspace }}/dist/omvll_v${{ steps.versioning.outputs.next_version }}_arm64_linux.tar.gz
